@@ -3,18 +3,63 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-const dbConfig = {
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'customer_management',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  acquireTimeout: 60000,
-  timeout: 60000,
-  reconnect: true
+// Function to parse DATABASE_URL if provided
+// Format: mysql://username:password@host:port/database
+const parseDatabaseUrl = (url) => {
+  if (!url) return null
+  
+  try {
+    const regex = /mysql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/
+    const match = url.match(regex)
+    
+    if (match) {
+      return {
+        host: match[3],
+        user: match[1],
+        password: match[2],
+        database: match[5],
+        port: parseInt(match[4])
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to parse DATABASE_URL:', error.message)
+  }
+  
+  return null
 }
+
+// Database configuration
+const dbConfig = (() => {
+  // Try to parse DATABASE_URL first (for deployment)
+  const dbUrlConfig = parseDatabaseUrl(process.env.DATABASE_URL)
+  
+  if (dbUrlConfig) {
+    return {
+      ...dbUrlConfig,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      acquireTimeout: 60000,
+      timeout: 60000,
+      reconnect: true
+    }
+  }
+  
+  // Fall back to individual environment variables (for development)
+  return {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'customer_management',
+    port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 3306,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
+    acquireTimeout: 60000,
+    timeout: 60000,
+    reconnect: true
+  }
+})()
 
 export const pool = mysql.createPool(dbConfig)
 
